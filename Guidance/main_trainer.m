@@ -94,14 +94,14 @@ function [InitialObservation, State] = ResetEnv(env)
     % Scan from drone position
     env = scanRadar(start_pos, start_yaw, env);
 
-    % Additional forward scan (matches stepFcn perception)
+    % Additional forward scan 
     fwd = [sind(start_yaw); cosd(start_yaw)];
     scan_pos = start_pos;
     scan_pos(1:2) = scan_pos(1:2) + 10 * fwd;
 
     env = scanRadar(scan_pos, start_yaw, env);
 
-    %% === 6. State vector (MATCHES stepFcn) ===
+    %% === 6. State vector ===
     scale = env.size;
 
     dx_norm = (target_pos(1) - start_pos(1)) / scale;
@@ -152,7 +152,7 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
     wy = Action(2);   % forward
 
     %% === 2. Convert local waypoint → world ===
-    lookahead = 15;               % meters (CRITICAL hyperparameter)
+    lookahead = 15;               % meters 
 
     % Local → world rotation
     % Local: X=right, Y=forward
