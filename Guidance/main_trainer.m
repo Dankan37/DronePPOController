@@ -114,8 +114,6 @@ function [InitialObservation, State] = ResetEnv(env)
     %% === 7. Build forward-looking patch ===
     [rawPatch, knownMask] = getLocalPatch(env, scan_pos, start_yaw, env.resolution);
     climbMap = makeClimbMap(rawPatch, start_pos(3), knownMask);
-    % occMap   = double(climbMap < 0);   % binary obstacle hint
-    % mapIn = cat(3, climbMap, occMap);   % [64×64×3]
     mapIn = fliplr(climbMap);
 
     %% === 8. Build State struct ===
@@ -215,8 +213,6 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
 
     [rawPatch, knownMask] = getLocalPatch(env, scan_pos, newYaw, env.resolution);
     climbMap = makeClimbMap(rawPatch, new_pos(3), knownMask);
-    %occMap = double(climbMap < 0);   % obstacle mask
-    %mapIn = cat(3, climbMap, occMap);
     mapIn = fliplr(climbMap);
 
     %% === 8. Observation ===
@@ -282,8 +278,6 @@ testAgent(agent, env, isHeadless, resetHandle, stepHandle);
 maxepisodes = 55000;
 maxsteps = 140;
 
-% delete(gcp("nocreate"));
-% parpool(parcluster('Processes'), 4);
 
 trainingOptions = rlTrainingOptions(...
     MaxEpisodes=maxepisodes,...
@@ -307,7 +301,6 @@ if isHeadless
     return
 end
 
-%load("agent_nav_4.mat")
 save_pos = true;
 simOptions = rlSimulationOptions(MaxSteps=maxsteps);
 experience = sim(tr_env,agent,simOptions);
@@ -319,13 +312,13 @@ plot(experience.Reward)
 %Posizione
 figure
 hold on
-positionData = squeeze(experience.Observation.stateIn.Data(1,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(1,1,:));
 plot(positionData);
 
-positionData = squeeze(experience.Observation.stateIn.Data(2,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(2,1,:));
 plot(positionData);
 
-positionData = squeeze(experience.Observation.stateIn.Data(3,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(3,1,:));
 plot(positionData);
 
 yline(0, 'r--', 'Target'); 
@@ -333,7 +326,7 @@ hold off
 legend("X","Y","Z","POS")
 title("Posizioni")
 
-positionData = squeeze(experience.Observation.stateIn.Data(4,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(4,1,:));
 plot(positionData);
 
 

@@ -11,10 +11,6 @@ for i = 1:8
 end
 
 Z = drawFilledCircle(X,Y,Z, m_size / 2, m_size / 2, m_size/40, 50);
-% Z = drawFilledSquare(X,Y,Z, 155, 0, 145, 50, 50);
-% Z = drawFilledSquare(X,Y,Z, m_size - 155, m_size, m_size - 145, m_size - 50, 50);
-% Z = drawFilledSquare(X,Y,Z, m_size - 155, 100, m_size - 145, 200, 50);
-% Z = drawFilledSquare(X,Y,Z, 100, 145, 200, 155, 50);
 
 
 ux = unique(X);
