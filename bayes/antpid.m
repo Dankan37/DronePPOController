@@ -34,15 +34,6 @@ vars = [
 % -------------------------------------------------------------------------
 objFun = @(params) cascadedXYObjectiveWrapper(params, env, Kinner);
 
-% results = bayesopt(objFun, vars, ...
-%     'MaxObjectiveEvaluations', 200, ...
-%     'NumSeedPoints', 40, ...
-%     'IsObjectiveDeterministic', true, ...
-%     'AcquisitionFunctionName', 'expected-improvement-plus', ...
-%     'ExplorationRatio', 0.5, ...
-%     'Verbose', 0, ...
-%     'UseParallel', true, ...
-%     'PlotFcn', {@plotMinObjective,@plotObjectiveModel});
 
 % -------------------------------------------------------------------------
 % 5) Best outer gains + final simulation + plots
@@ -92,10 +83,6 @@ grid on; xlabel('Tempo [s]'); ylabel('Comando motore');
 title('Comandi motore');
 legend("1","2","3","4","5","6","Location","bestoutside");
 
-% figure('Name','BayesOpt trace');
-% plot(results.EstimatedObjectiveMinimumTrace, 'LineWidth', 2);
-% grid on; title('Estimated minimum J vs evaluation');
-% xlabel('Evaluation'); ylabel('Estimated minimum J');
 
 
 %% ========================================================================
@@ -316,10 +303,6 @@ function [phi_cmd, theta_cmd] = evalPid_outer_xy(State, env, cmd, Kouter)
     % If sign is wrong in your dynamics, flip one or both signs.
     theta_cmd = (Kpx*ex + Kix*ix - Kdx*vx);
     phi_cmd   = -(Kpy*ey + Kiy*iy - Kdy*vy);
-
-    % If you observe divergence or mirrored response, try:
-    % theta_cmd = -(Kpx*ex + Kix*ix - Kdx*vx);
-    % phi_cmd   = -(Kpy*ey + Kiy*iy - Kdy*vy);
 end
 
 
