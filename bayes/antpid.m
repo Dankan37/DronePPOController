@@ -4,21 +4,15 @@
 
 clear; clc; close all;
 
-% -------------------------------------------------------------------------
-% 1) Load/construct env + dynamics
-% -------------------------------------------------------------------------
+% load env and dynamics
 run("Baseline_last.mlx");
 rng(1,'twister'); % only if you want determinism
 
-% -------------------------------------------------------------------------
-% 2) INNER LOOP (pretrained) gains (FIXED during tuning)
-% -------------------------------------------------------------------------
+% fixed inner loop gains
 % Replace with your real best inner gains
 load("k_in.mat")
 
-% -------------------------------------------------------------------------
-% 3) OUTER LOOP tuning variables (ONLY x,y position PID)
-% -------------------------------------------------------------------------
+% outer loop tuning variables
 vars = [
     optimizableVariable('kp_x',[-5 5])
     optimizableVariable('ki_x',[0 2])
@@ -29,15 +23,11 @@ vars = [
     optimizableVariable('kd_y',[-5 5])
 ];
 
-% -------------------------------------------------------------------------
-% 4) Bayesian Optimization
-% -------------------------------------------------------------------------
+% bayesian optimization
 objFun = @(params) cascadedXYObjectiveWrapper(params, env, Kinner);
 
 
-% -------------------------------------------------------------------------
-% 5) Best outer gains + final simulation + plots
-% -------------------------------------------------------------------------
+% best gains and final simulation
 
 Kouter.x = [2.974, 0.001, 0.231];
 Kouter.y = [3.01, 0.00078, 0.233];
@@ -85,9 +75,7 @@ legend("1","2","3","4","5","6","Location","bestoutside");
 
 
 
-%% ========================================================================
-%% Objective wrapper: tunes OUTER x/y PID only, INNER fixed; z is pass-through
-%% ========================================================================
+% objective wrapper for outer loop
 function J = cascadedXYObjectiveWrapper(x, env, Kinner)
 
     Kouter.x = [x.kp_x, x.ki_x, x.kd_x];
@@ -160,9 +148,7 @@ function J = cascadedXYObjectiveWrapper(x, env, Kinner)
 end
 
 
-%% ========================================================================
-%% Cascaded simulation: OUTER x/y -> INNER attitude; z is pass-through
-%% ========================================================================
+% cascaded simulation
 function [e, u, dt, log] = runCascadedXYClosedLoopSimulation(Kouter, Kinner, env, State)
 
     dt = env.dt;
@@ -258,9 +244,7 @@ function [e, u, dt, log] = runCascadedXYClosedLoopSimulation(Kouter, Kinner, env
 end
 
 
-%% ========================================================================
-%% OUTER PID: x/y position -> (phi_cmd, theta_cmd)
-%% ========================================================================
+% outer pid x y to phi theta
 function [phi_cmd, theta_cmd] = evalPid_outer_xy(State, env, cmd, Kouter)
 
     persistent ix iy
@@ -306,9 +290,7 @@ function [phi_cmd, theta_cmd] = evalPid_outer_xy(State, env, cmd, Kouter)
 end
 
 
-%% ========================================================================
-%% INNER PID: your existing attitude/altitude controller
-%% ========================================================================
+% inner pid controller
 function Action = evalPid_inner(State, env, com_arr, K)
 
     persistent integ_z
@@ -377,9 +359,7 @@ function Action = evalPid_inner(State, env, com_arr, K)
 end
 
 
-%% ========================================================================
-%% Reset (yours)
-%% ========================================================================
+% reset
 function [InitialObservation,State] = resetFunction(env)
 
     sim_pos  = [0; 0; 10];
