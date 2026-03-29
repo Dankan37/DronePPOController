@@ -4,21 +4,15 @@
 
 clear; clc; close all;
 
-% -------------------------------------------------------------------------
-% 1) Load/construct env + dynamics
-% -------------------------------------------------------------------------
+% load env and dynamics
 run("Baseline_last.mlx");
 rng(1,'twister'); % only if you want determinism
 
-% -------------------------------------------------------------------------
-% 2) INNER LOOP (pretrained) gains (FIXED during tuning)
-% -------------------------------------------------------------------------
+% fixed inner loop gains
 % Replace with your real best inner gains
 load("k_in.mat")
 
-% -------------------------------------------------------------------------
-% 3) OUTER LOOP tuning variables (ONLY x,y position PID)
-% -------------------------------------------------------------------------
+% outer loop tuning variables
 vars = [
     optimizableVariable('kp_x',[-5 5])
     optimizableVariable('ki_x',[0 2])
@@ -29,24 +23,11 @@ vars = [
     optimizableVariable('kd_y',[-5 5])
 ];
 
-% -------------------------------------------------------------------------
-% 4) Bayesian Optimization
-% -------------------------------------------------------------------------
+% bayesian optimization
 objFun = @(params) cascadedXYObjectiveWrapper(params, env, Kinner);
 
-% results = bayesopt(objFun, vars, ...
-%     'MaxObjectiveEvaluations', 200, ...
-%     'NumSeedPoints', 40, ...
-%     'IsObjectiveDeterministic', true, ...
-%     'AcquisitionFunctionName', 'expected-improvement-plus', ...
-%     'ExplorationRatio', 0.5, ...
-%     'Verbose', 0, ...
-%     'UseParallel', true, ...
-%     'PlotFcn', {@plotMinObjective,@plotObjectiveModel});
 
-% -------------------------------------------------------------------------
-% 5) Best outer gains + final simulation + plots
-% -------------------------------------------------------------------------
+% best gains and final simulation
 
 Kouter.x = [2.974, 0.001, 0.231];
 Kouter.y = [3.01, 0.00078, 0.233];
@@ -92,15 +73,9 @@ grid on; xlabel('Tempo [s]'); ylabel('Comando motore');
 title('Comandi motore');
 legend("1","2","3","4","5","6","Location","bestoutside");
 
-% figure('Name','BayesOpt trace');
-% plot(results.EstimatedObjectiveMinimumTrace, 'LineWidth', 2);
-% grid on; title('Estimated minimum J vs evaluation');
-% xlabel('Evaluation'); ylabel('Estimated minimum J');
 
 
-%% ========================================================================
-%% Objective wrapper: tunes OUTER x/y PID only, INNER fixed; z is pass-through
-%% ========================================================================
+% objective wrapper for outer loop
 function J = cascadedXYObjectiveWrapper(x, env, Kinner)
 
     Kouter.x = [x.kp_x, x.ki_x, x.kd_x];
@@ -173,9 +148,7 @@ function J = cascadedXYObjectiveWrapper(x, env, Kinner)
 end
 
 
-%% ========================================================================
-%% Cascaded simulation: OUTER x/y -> INNER attitude; z is pass-through
-%% ========================================================================
+% cascaded simulation
 function [e, u, dt, log] = runCascadedXYClosedLoopSimulation(Kouter, Kinner, env, State)
 
     dt = env.dt;
@@ -271,9 +244,7 @@ function [e, u, dt, log] = runCascadedXYClosedLoopSimulation(Kouter, Kinner, env
 end
 
 
-%% ========================================================================
-%% OUTER PID: x/y position -> (phi_cmd, theta_cmd)
-%% ========================================================================
+% outer pid x y to phi theta
 function [phi_cmd, theta_cmd] = evalPid_outer_xy(State, env, cmd, Kouter)
 
     persistent ix iy
@@ -316,16 +287,10 @@ function [phi_cmd, theta_cmd] = evalPid_outer_xy(State, env, cmd, Kouter)
     % If sign is wrong in your dynamics, flip one or both signs.
     theta_cmd = (Kpx*ex + Kix*ix - Kdx*vx);
     phi_cmd   = -(Kpy*ey + Kiy*iy - Kdy*vy);
-
-    % If you observe divergence or mirrored response, try:
-    % theta_cmd = -(Kpx*ex + Kix*ix - Kdx*vx);
-    % phi_cmd   = -(Kpy*ey + Kiy*iy - Kdy*vy);
 end
 
 
-%% ========================================================================
-%% INNER PID: your existing attitude/altitude controller
-%% ========================================================================
+% inner pid controller
 function Action = evalPid_inner(State, env, com_arr, K)
 
     persistent integ_z
@@ -394,9 +359,7 @@ function Action = evalPid_inner(State, env, com_arr, K)
 end
 
 
-%% ========================================================================
-%% Reset (yours)
-%% ========================================================================
+% reset
 function [InitialObservation,State] = resetFunction(env)
 
     sim_pos  = [0; 0; 10];

@@ -61,12 +61,12 @@ env.size = m_size; env.save = false;
 
 function [InitialObservation, State] = ResetEnv(env)
 
-    %% === Unpack ===
+    % unpack
     F = env.F;
     B = env.XY_bound;
     m_size = env.size;
 
-    %% === 1. Fixed start & target (TEST MODE) ===
+    % start and target
     start_pos  = [0;   25;   0] + [randi(m_size, 1, 1); 0; 0];
     target_pos = [0;   m_size - 25;   0] + [randi(m_size, 1, 1); 0; 0];
 
@@ -75,22 +75,22 @@ function [InitialObservation, State] = ResetEnv(env)
         save("pos_sim","start_pos","target_pos");
     end
 
-    %% === 2. Fixed altitude (AGL = 5 m) ===
+    % fixed altitude
     desiredAGL = 5;
     start_pos(3)  = F(start_pos(1),  start_pos(2))  + desiredAGL;
     target_pos(3) = F(target_pos(1), target_pos(2)) + desiredAGL;
 
-    %% === 3. Initial yaw toward target ===
+    % initial yaw
     % Convention: yaw = 0 → +Y (north), +90 → +X (east)
     dx = target_pos(1) - start_pos(1);
     dy = target_pos(2) - start_pos(2);
     start_yaw = atan2d(dx, dy);
 
-    %% === 4. Reset mapping memory ===
+    % reset map memory
     env.heightmap(:)    = nan;
     env.height_known(:) = false;
 
-    %% === 5. Initial radar scans ===
+    % initial radar scans
     % Scan from drone position
     env = scanRadar(start_pos, start_yaw, env);
 
@@ -101,7 +101,7 @@ function [InitialObservation, State] = ResetEnv(env)
 
     env = scanRadar(scan_pos, start_yaw, env);
 
-    %% === 6. State vector ===
+    % state vector
     scale = env.size;
 
     dx_norm = (target_pos(1) - start_pos(1)) / scale;
@@ -111,14 +111,12 @@ function [InitialObservation, State] = ResetEnv(env)
 
     stateVec = [dx_norm; dy_norm; start_pos(3)/20; heading_err];
 
-    %% === 7. Build forward-looking patch ===
+    % forward patch
     [rawPatch, knownMask] = getLocalPatch(env, scan_pos, start_yaw, env.resolution);
     climbMap = makeClimbMap(rawPatch, start_pos(3), knownMask);
-    % occMap   = double(climbMap < 0);   % binary obstacle hint
-    % mapIn = cat(3, climbMap, occMap);   % [64×64×3]
     mapIn = fliplr(climbMap);
 
-    %% === 8. Build State struct ===
+    % state struct
     State.pos         = start_pos;
     State.yaw         = start_yaw;
     State.tgt         = target_pos;
@@ -127,7 +125,7 @@ function [InitialObservation, State] = ResetEnv(env)
     State.last_dist   = norm(start_pos(1:2) - target_pos(1:2));
     State.prevAction  = [0; 0];
 
-    %% === Output ===
+    % output
     InitialObservation = {stateVec, mapIn};
 
 end
@@ -135,7 +133,7 @@ end
 
 function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
 
-    %% === Unpack ===
+    % unpack
     env = State.env;
     F   = env.F;
 
@@ -145,13 +143,13 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
 
     scale = State.scale_factor;
 
-    %% === 1. Action: local waypoint ===
+    % action as local waypoint
     Action = max(min(Action, env.upperlimit), env.lowerlimit);
 
     wx = 0.3*Action(1);   % right / left
     wy = Action(2);   % forward
 
-    %% === 2. Convert local waypoint → world ===
+    % local waypoint to world
     lookahead = 15;               % meters 
 
     % Local → world rotation
@@ -163,7 +161,7 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
                + wy * lookahead * fwd ...
                + wx * lookahead * left;
 
-    %% === 3. Move toward waypoint ===
+    % move toward waypoint
     maxStep = 5.0;   % meters per step
 
     dir = waypointXY - pos(1:2);
@@ -178,19 +176,19 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
     stepXY = dir * min(distXY, maxStep);
     new_xy = pos(1:2) + stepXY;
 
-    %% === 4. Yaw update (aligned with motion) ===
+    % yaw update
     newYaw = atan2d(dir(1), dir(2));   % atan2(dx, dy)
     newYaw = wrapTo180(newYaw);
 
 
-    %% === 5. Altitude handling (fixed AGL) ===
+    % altitude handling
     desiredAGL = 5;
     groundZ = F(new_xy(1), new_xy(2));
     new_z   = groundZ + desiredAGL;
 
     new_pos = [new_xy; new_z];
 
-    %% === 6. Target metrics ===
+    % target metrics
     dist        = norm(new_xy - tgt(1:2));
     prevDist    = State.last_dist;
 
@@ -204,7 +202,7 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
     dy = (tgt(2) - new_xy(2)) / scale;
     dz = (tgt(3) - new_z)    / scale;
 
-    %% === 7. Update map ===
+    % update map
     env = scanRadar(new_pos, newYaw, env);
     State.env = env;
 
@@ -215,14 +213,12 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
 
     [rawPatch, knownMask] = getLocalPatch(env, scan_pos, newYaw, env.resolution);
     climbMap = makeClimbMap(rawPatch, new_pos(3), knownMask);
-    %occMap = double(climbMap < 0);   % obstacle mask
-    %mapIn = cat(3, climbMap, occMap);
     mapIn = fliplr(climbMap);
 
-    %% === 8. Observation ===
+    % observation
     stateVec = [dx; dy; new_pos(3)/20; headingErr];
 
-    %% === 9. Reward ===
+    % reward
     deltaDist = prevDist - dist;
     R_progress = 6.0 * deltaDist / scale;
 
@@ -237,7 +233,7 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
 
     Reward = R_goal + R_progress + R_clear - 0.33 * abs(wx);
 
-    %% === 10. Termination ===
+    % termination
     IsDone = false;
 
     if dist < 15
@@ -257,13 +253,13 @@ function [nextObv, Reward, IsDone, State] = stepFcn(Action, State)
         IsDone = true;
     end
 
-    %% === 11. Update state ===
+    % update state
     State.pos        = new_pos;
     State.yaw        = newYaw;
     State.last_dist  = dist;
     State.prevAction = Action;
 
-    %% === 12. Output ===
+    % output
     nextObv = {stateVec, mapIn};
 
 end
@@ -282,8 +278,6 @@ testAgent(agent, env, isHeadless, resetHandle, stepHandle);
 maxepisodes = 55000;
 maxsteps = 140;
 
-% delete(gcp("nocreate"));
-% parpool(parcluster('Processes'), 4);
 
 trainingOptions = rlTrainingOptions(...
     MaxEpisodes=maxepisodes,...
@@ -307,7 +301,6 @@ if isHeadless
     return
 end
 
-%load("agent_nav_4.mat")
 save_pos = true;
 simOptions = rlSimulationOptions(MaxSteps=maxsteps);
 experience = sim(tr_env,agent,simOptions);
@@ -319,13 +312,13 @@ plot(experience.Reward)
 %Posizione
 figure
 hold on
-positionData = squeeze(experience.Observation.stateIn.Data(1,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(1,1,:));
 plot(positionData);
 
-positionData = squeeze(experience.Observation.stateIn.Data(2,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(2,1,:));
 plot(positionData);
 
-positionData = squeeze(experience.Observation.stateIn.Data(3,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(3,1,:));
 plot(positionData);
 
 yline(0, 'r--', 'Target'); 
@@ -333,7 +326,7 @@ hold off
 legend("X","Y","Z","POS")
 title("Posizioni")
 
-positionData = squeeze(experience.Observation.stateIn.Data(4,1,:));  % Extract the position vector
+positionData = squeeze(experience.Observation.stateIn.Data(4,1,:));
 plot(positionData);
 
 
